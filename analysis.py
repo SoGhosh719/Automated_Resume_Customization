@@ -7,20 +7,17 @@ from docx import Document
 from fpdf import FPDF
 import openai  # Fix OpenAI client import
 
-# 🔹 Ensure spaCy Model is Installed
+# 🔹 Ensure spaCy Model is Installed (Fixed)
 spacy_model = "en_core_web_sm"
 try:
     nlp = spacy.load(spacy_model)
 except OSError:
-    st.warning(f"⚠️ Installing `{spacy_model}` model... Please wait.")
-    os.system(f"python -m spacy download {spacy_model}")
-    nlp = spacy.load(spacy_model)
+    st.error(f"❌ `{spacy_model}` model is missing. Ensure it is installed in `requirements.txt`.")
+    st.stop()  # Stop execution if model is not installed
 
-# 🔹 OpenAI API Key (Use Streamlit Secrets Instead of Hardcoding)
+# 🔹 OpenAI API Key from Streamlit Secrets
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-
-# 🔹 Initialize OpenAI Client (Fixed)
-openai_client = openai.Client(api_key=OPENAI_API_KEY)
+openai.api_key = OPENAI_API_KEY  # ✅ Fixed OpenAI Client Initialization
 
 # 🔹 Function to Extract Text from PDF
 def extract_text_from_pdf(uploaded_file):
@@ -57,12 +54,12 @@ def improve_resume(resume_text, matched_skills):
     Ensure it is **professional, concise, and ATS-compliant**.
     """
 
-    response = openai_client.chat.completions.create(
+    response = openai.ChatCompletion.create(  # ✅ Fixed OpenAI API Call
         model="gpt-4-turbo",
         messages=[{"role": "system", "content": prompt}]
     )
 
-    return response.choices[0].message["content"]
+    return response["choices"][0]["message"]["content"]
 
 # 🔹 Function to Generate a PDF Resume
 def generate_pdf(text):

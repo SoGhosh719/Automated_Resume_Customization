@@ -3,110 +3,112 @@ import PyPDF2
 import spacy
 import os
 from io import BytesIO
-from docx import Document
 from fpdf import FPDF
-import openai  # Fix OpenAI client import
+import openai
 
-# 🔹 Ensure spaCy Model is Installed (Fixed)
+# ✅ Ensure spaCy Model is Installed (Auto-install on Missing)
 spacy_model = "en_core_web_sm"
+
 try:
     nlp = spacy.load(spacy_model)
 except OSError:
-    st.error(f"❌ `{spacy_model}` model is missing. Ensure it is installed in `requirements.txt`.")
-    st.stop()  # Stop execution if model is not installed
+    st.warning(f"⚠️ `{spacy_model}` model not found. Installing now... This may take a few seconds.")
+    os.system(f"python -m spacy download {spacy_model}")  # Install the model
+    nlp = spacy.load(spacy_model)  # Load the model after installation
 
-# 🔹 OpenAI API Key from Streamlit Secrets
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-openai.api_key = OPENAI_API_KEY  # ✅ Fixed OpenAI Client Initialization
+# ✅ Retrieve OpenAI API Key securely
+try:
+    openai.api_key = st.secrets["OPENAI_API_KEY"]
+except KeyError:
+    st.error("❌ API key not configured. Please contact the admin.")
+    st.stop()
 
-# 🔹 Function to Extract Text from PDF
+# ✅ Extract text from PDF file
 def extract_text_from_pdf(uploaded_file):
-    text = ""
-    pdf_reader = PyPDF2.PdfReader(uploaded_file)
-    for page in pdf_reader.pages:
-        page_text = page.extract_text()
-        if page_text:
-            text += page_text + "\n"
-    
-    if not text.strip():
-        return "⚠️ No readable text found in PDF. Please check the document."
-    
-    return text.strip()
+    try:
+        pdf_reader = PyPDF2.PdfReader(uploaded_file)
+        text = "\n".join([page.extract_text() or "" for page in pdf_reader.pages])
+        return text.strip() if text.strip() else "⚠️ No readable text found in PDF."
+    except Exception as e:
+        return f"⚠️ Error reading PDF: {str(e)}"
 
-# 🔹 Function to Extract Key Skills from Job Description
+# ✅ Extract key skills from job description
 def extract_keywords(job_description):
     doc = nlp(job_description.lower())
-    keywords = [token.lemma_ for token in doc if token.pos_ in ['NOUN', 'PROPN', 'VERB', 'ADJ'] and not token.is_stop]
-    return list(set(keywords))  # Remove duplicates
+    return list(set(token.lemma_ for token in doc if token.pos_ in ['NOUN', 'PROPN', 'VERB', 'ADJ'] and not token.is_stop))
 
-# 🔹 Function to Match Resume with Job Description
+# ✅ Match skills between resume and job description
 def match_skills(resume_text, job_keywords):
-    matched_skills = [word for word in job_keywords if word in resume_text.lower()]
-    return set(matched_skills)
+    return {word for word in job_keywords if word in resume_text.lower()}
 
-# 🔹 Function to Generate an Improved Resume using OpenAI
+# ✅ Improve resume using OpenAI
 def improve_resume(resume_text, matched_skills):
     prompt = f"""
-    Here is a resume text:
+    Rewrite this resume to highlight these skills: {', '.join(matched_skills)}.
+    Ensure it is **professional, concise, and ATS-compliant** with quantifiable achievements.
+
+    Original Resume:
     {resume_text}
-
-    Please rewrite it to emphasize these skills: {', '.join(matched_skills)}.
-    Ensure it is **professional, concise, and ATS-compliant**.
     """
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[{"role": "system", "content": prompt}],
+            max_tokens=1000
+        )
+        return response["choices"][0]["message"]["content"]
+    except Exception as e:
+        return f"⚠️ Error generating resume: {str(e)}"
 
-    response = openai.ChatCompletion.create(  # ✅ Fixed OpenAI API Call
-        model="gpt-4-turbo",
-        messages=[{"role": "system", "content": prompt}]
-    )
-
-    return response["choices"][0]["message"]["content"]
-
-# 🔹 Function to Generate a PDF Resume
+# ✅ Generate an optimized resume as a PDF
 def generate_pdf(text):
     pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     pdf.set_font("Arial", size=12)
     
-    # Wrap text properly to prevent cut-off
     for line in text.split("\n"):
-        pdf.multi_cell(0, 10, txt=line, align="L")
-
+        pdf.multi_cell(0, 10, txt=line.encode('latin-1', 'replace').decode('latin-1'))
+    
     pdf_output = BytesIO()
     pdf.output(pdf_output, "F")
     pdf_output.seek(0)
     return pdf_output
 
-# 🔹 Streamlit UI
-st.title("📄 Resume Optimizer WebApp")
-st.markdown("Upload your **Resume (PDF)** and **Job Description (Text)** to get an optimized resume.")
+# ✅ Streamlit UI
+st.title("📄 Resume Optimizer")
+st.markdown("Upload your resume (PDF) and paste a job description to get a tailored resume.")
 
-# 🔹 File Upload Section
+# ✅ File upload & job description input
 uploaded_resume = st.file_uploader("📂 Upload Resume (PDF)", type=["pdf"])
 job_description = st.text_area("📝 Paste Job Description", height=200)
 
-if uploaded_resume and job_description:
-    with st.spinner("⏳ Processing..."):
-        resume_text = extract_text_from_pdf(uploaded_resume)
-        
-        if "⚠️" in resume_text:
-            st.error(resume_text)  # Show error if no text is found in PDF
-        else:
-            job_keywords = extract_keywords(job_description)
-            matched_skills = match_skills(resume_text, job_keywords)
+# ✅ Process & Optimize Resume
+if st.button("Optimize Resume"):
+    if uploaded_resume and job_description:
+        with st.spinner("⏳ Processing your resume..."):
+            resume_text = extract_text_from_pdf(uploaded_resume)
 
-            if matched_skills:
-                st.success(f"✅ Matched Skills Found: {', '.join(matched_skills)}")
+            if "⚠️" in resume_text:
+                st.error(resume_text)
             else:
-                st.warning("⚠️ No significant matches found. Consider adding relevant skills.")
+                job_keywords = extract_keywords(job_description)
+                matched_skills = match_skills(resume_text, job_keywords)
 
-            optimized_resume = improve_resume(resume_text, matched_skills)
-            pdf_file = generate_pdf(optimized_resume)
+                if matched_skills:
+                    st.success(f"✅ Matched Skills: {', '.join(matched_skills)}")
+                else:
+                    st.warning("⚠️ No matches found. Consider adding relevant skills.")
 
-            st.subheader("📥 Download Optimized Resume")
-            st.download_button(
-                label="📄 Download PDF",
-                data=pdf_file,
-                file_name="Optimized_Resume.pdf",
-                mime="application/pdf"
-            )
+                optimized_resume = improve_resume(resume_text, matched_skills)
+                if "⚠️" in optimized_resume:
+                    st.error(optimized_resume)
+                else:
+                    pdf_file = generate_pdf(optimized_resume)
+                    st.download_button(
+                        label="📄 Download Optimized Resume",
+                        data=pdf_file,
+                        file_name="Optimized_Resume.pdf",
+                        mime="application/pdf"
+                    )
+    else:
+        st.warning("⚠️ Please upload a resume and enter a job description.")

@@ -153,5 +153,3 @@ This project **automates resume customization using AI**, making job application
 
 ---
 **💡 Ready to use?** 👉 **[Try it on Railway!](https://railway.app/)** 🚀  
-
-Let me know if you need any more improvements! 😊

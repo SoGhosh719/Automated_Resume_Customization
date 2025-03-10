@@ -2,10 +2,9 @@ import streamlit as st
 import PyPDF2
 import spacy
 import os
-import docx
+from docx import Document
 from fpdf import FPDF
 from openai import OpenAI
-
 # Load NLP model
 nlp = spacy.load("en_core_web_sm")
 

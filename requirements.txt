@@ -3,4 +3,4 @@ PyPDF2
 spacy
 openai
 fpdf
-docx
+python-docx

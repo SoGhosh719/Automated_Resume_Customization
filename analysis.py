@@ -1,20 +1,19 @@
 import streamlit as st
-import PyPDF2
 import spacy
 import os
+import PyPDF2
 from io import BytesIO
 from fpdf import FPDF
 import openai
 
-# ✅ Ensure spaCy Model is Installed (Auto-install on Missing)
-spacy_model = "en_core_web_sm"
+# ✅ Load spaCy model from local path (Instead of downloading every time)
+spacy_model_path = os.path.join(os.path.dirname(__file__), "models/en_core_web_sm")
 
 try:
-    nlp = spacy.load(spacy_model)
+    nlp = spacy.load(spacy_model_path)
 except OSError:
-    st.warning(f"⚠️ `{spacy_model}` model not found. Installing now... This may take a few seconds.")
-    os.system(f"python -m spacy download {spacy_model}")  # Install the model
-    nlp = spacy.load(spacy_model)  # Load the model after installation
+    st.error(f"❌ spaCy model not found in {spacy_model_path}. Ensure it is added to the repository.")
+    st.stop()
 
 # ✅ Retrieve OpenAI API Key securely
 try:
@@ -75,8 +74,8 @@ def generate_pdf(text):
     return pdf_output
 
 # ✅ Streamlit UI
-st.title("📄 Resume Optimizer")
-st.markdown("Upload your resume (PDF) and paste a job description to get a tailored resume.")
+st.title("📄 AI-Powered Resume Optimizer")
+st.markdown("🚀 Upload your **resume (PDF)** and paste a **job description** to generate an ATS-friendly optimized resume.")
 
 # ✅ File upload & job description input
 uploaded_resume = st.file_uploader("📂 Upload Resume (PDF)", type=["pdf"])

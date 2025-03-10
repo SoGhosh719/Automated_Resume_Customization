@@ -1,7 +1,7 @@
 streamlit
-PyPDF2
 spacy
+en-core-web-sm
+PyPDF2
 python-docx
 fpdf
 openai
-

@@ -3,3 +3,6 @@ spacy
 PyPDF2
 fpdf
 openai>=1.0.0
+sentence-transformers  # ✅ For local AI skill matching
+transformers  # ✅ If using Hugging Face models
+torch  # ✅ Required for sentence-transformers

@@ -2,22 +2,31 @@ import streamlit as st
 import PyPDF2
 import spacy
 import os
+from io import BytesIO
 from docx import Document
 from fpdf import FPDF
 from openai import OpenAI
-# Load NLP model
-nlp = spacy.load("en_core_web_sm")
 
-# OpenAI API Key
-OPENAI_API_KEY = "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"
+# Ensure spaCy Model is Installed
+spacy_model = "en_core_web_sm"
+try:
+    nlp = spacy.load(spacy_model)
+except OSError:
+    os.system(f"python -m spacy download {spacy_model}")
+    nlp = spacy.load(spacy_model)
+
+# OpenAI API Key (Use Streamlit Secrets Instead of Hardcoding)
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
 # Function to extract text from PDF
 def extract_text_from_pdf(uploaded_file):
     text = ""
     pdf_reader = PyPDF2.PdfReader(uploaded_file)
     for page in pdf_reader.pages:
-        text += page.extract_text() + "\n"
-    return text
+        page_text = page.extract_text()
+        if page_text:
+            text += page_text + "\n"
+    return text.strip() if text else "No text found in PDF."
 
 # Function to extract key skills from job description
 def extract_keywords(job_description):
@@ -30,7 +39,7 @@ def match_skills(resume_text, job_keywords):
     matched_skills = [word for word in job_keywords if word in resume_text.lower()]
     return set(matched_skills)
 
-# Function to generate an improved resume
+# Function to generate an improved resume using OpenAI
 def improve_resume(resume_text, matched_skills):
     client = OpenAI(api_key=OPENAI_API_KEY)
     
@@ -50,41 +59,48 @@ def improve_resume(resume_text, matched_skills):
     return response.choices[0].message["content"]
 
 # Function to generate a PDF resume
-def generate_pdf(text, output_file="Optimized_Resume.pdf"):
+def generate_pdf(text):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     pdf.set_font("Arial", size=12)
     
+    # Add each line separately to prevent overflow
     for line in text.split("\n"):
-        pdf.cell(200, 10, txt=line, ln=True, align="L")
+        pdf.multi_cell(0, 10, txt=line, align="L")
 
-    pdf.output(output_file)
-    return output_file
+    pdf_output = BytesIO()
+    pdf.output(pdf_output, "F")
+    pdf_output.seek(0)
+    return pdf_output
 
 # Streamlit UI
-st.title("Resume Optimizer WebApp")
+st.title("📄 Resume Optimizer WebApp")
 st.markdown("Upload your **Resume (PDF)** and **Job Description (Text)** to get an optimized resume.")
 
 # File Upload
-uploaded_resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"])
-job_description = st.text_area("Paste Job Description")
+uploaded_resume = st.file_uploader("📂 Upload Resume (PDF)", type=["pdf"])
+job_description = st.text_area("📝 Paste Job Description", height=200)
 
 if uploaded_resume and job_description:
-    with st.spinner("Processing..."):
+    with st.spinner("⏳ Processing..."):
         resume_text = extract_text_from_pdf(uploaded_resume)
         job_keywords = extract_keywords(job_description)
         matched_skills = match_skills(resume_text, job_keywords)
-        
+
         if matched_skills:
-            st.success(f"Matched Skills Found: {', '.join(matched_skills)}")
+            st.success(f"✅ Matched Skills Found: {', '.join(matched_skills)}")
         else:
-            st.warning("No significant matches found. Consider adding relevant skills.")
+            st.warning("⚠️ No significant matches found. Consider adding relevant skills.")
 
         optimized_resume = improve_resume(resume_text, matched_skills)
-        pdf_path = generate_pdf(optimized_resume)
+        pdf_file = generate_pdf(optimized_resume)
 
-        st.subheader("Download Optimized Resume")
-        with open(pdf_path, "rb") as pdf_file:
-            st.download_button("Download PDF", pdf_file, file_name="Optimized_Resume.pdf", mime="application/pdf")
+        st.subheader("📥 Download Optimized Resume")
+        st.download_button(
+            label="📄 Download PDF",
+            data=pdf_file,
+            file_name="Optimized_Resume.pdf",
+            mime="application/pdf"
+        )
 

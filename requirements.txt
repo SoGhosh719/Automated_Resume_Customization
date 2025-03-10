@@ -2,4 +2,4 @@ streamlit
 spacy
 PyPDF2
 fpdf
-openai
+openai>=1.0.0

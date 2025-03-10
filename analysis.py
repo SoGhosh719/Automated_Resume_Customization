@@ -17,7 +17,7 @@ except OSError:
 
 # ✅ Retrieve OpenAI API Key securely
 try:
-    openai.api_key = st.secrets["OPENAI_API_KEY"]
+    client = openai.OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 except KeyError:
     st.error("❌ API key not configured. Please contact the admin.")
     st.stop()
@@ -40,7 +40,7 @@ def extract_keywords(job_description):
 def match_skills(resume_text, job_keywords):
     return {word for word in job_keywords if word in resume_text.lower()}
 
-# ✅ Improve resume using OpenAI
+# ✅ Improve resume using OpenAI (Updated API Call)
 def improve_resume(resume_text, matched_skills):
     prompt = f"""
     Rewrite this resume to highlight these skills: {', '.join(matched_skills)}.
@@ -50,12 +50,12 @@ def improve_resume(resume_text, matched_skills):
     {resume_text}
     """
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "system", "content": prompt}],
             max_tokens=1000
         )
-        return response["choices"][0]["message"]["content"]
+        return response.choices[0].message.content
     except Exception as e:
         return f"⚠️ Error generating resume: {str(e)}"
 

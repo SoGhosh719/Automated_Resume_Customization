@@ -16,4 +16,4 @@ RUN python -m spacy download en_core_web_sm  # ✅ Ensures spaCy model is instal
 EXPOSE 8501
 
 # Command to run the app
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "analysis.py", "--server.port=8501", "--server.address=0.0.0.0"]
